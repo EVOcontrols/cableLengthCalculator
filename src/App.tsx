@@ -320,50 +320,22 @@ const App: React.FC = () => {
   }, [draggedVertex, updateLinesAndVertices]);
 
   const onModalClose = (parameters: any) => {
-    // const auth = new google.auth.GoogleAuth({
-    //   keyFile: 'credentials.json',
-    //   scopes: 'https://www.googleapis.com/auth/spreadsheets',
-    // });
-    // const client = await auth.getClient();
+    const data = {
+      elementType: parameters.elementType,
+      Group: parameters.group || '',
+      Name: parameters.name || '',
+      Voltage: parameters.voltage || '',
+      Type: parameters.type || '',
+      Power: parameters.power || '',
+      Interface: parameters.interface || '',
+      Cable: parameters.cable || '',
+    };
 
-    // const googleSheets = google.sheets({ version: 'v4', auth: client });
-
-    // const spreadsheetId = '1fQOFenTyu1rvZqoNl23T6hK0uRsDQHjoxQv5AZQhi50';
-
-    // await googleSheets.spreadsheets.values.append({
-    //   auth,
-    //   spreadsheetId,
-    //   range: 'Lights',
-    //   valueInputOption: 'USER_ENTERED',
-    //   requestBody: {
-    //     values: [['12312']],
-    //   },
-    // });
-    // console.log(parameters);
-
-    // const data = JSON.stringify({
-    //   Group: parameters.group,
-    //   Name: parameters.name,
-    //   Voltage: parameters.voltage,
-    //   Power: parameters.power,
-    //   Interface: parameters.interface,
-    //   Cable: parameters.cable,
-    // });
-
-    // const data = new FormData(parameters);
-
-    // axios.post(
-    //   'https://script.google.com/macros/s/AKfycbyPH1nYofJHxM33_IsFfHT0LcVe0EulbzJsu8tMJwChccMlNaqvWFIr1UqHOQKUOOcyKA/exec',
-    //   data,
-    //   { headers: { 'Content-Type': 'text/plain' } }
-    // );
-    // fetch(
-    //   'https://script.google.com/macros/s/AKfycbwkuIJOh82rz1HjWGHKbtduGgMZLn7Kb4w_9snCBV5EWIFvCxi_cOXPrrMFt25xgUmZJg/exec',
-    //   {
-    //     method: 'POST',
-    //     body: {Group: parameters.group},
-    //   }
-    // );
+    axios.post(
+      'https://script.google.com/macros/s/AKfycbyherCqE3VEi3soiYOMoyvnuvaJJLRtNDHLHXRJKtBstm6j5Z0fMlxsKZSUCVnu0g40Ug/exec',
+      data,
+      { headers: { 'Content-Type': 'text/plain' } }
+    );
 
     setIconParameters((prevParameters) => {
       return { ...prevParameters, [currentIconId]: parameters };
@@ -412,7 +384,9 @@ const App: React.FC = () => {
   const renderPdfAsBackground = async (url: string) => {
     const pdf = await getDocument(url).promise;
     const page = await pdf.getPage(1);
-    const viewport = page.getViewport({ scale: 1 });
+    const desiredDPI = 300; // Desired resolution in DPI
+    const scale = desiredDPI / 96; // Convert the desired resolution to a scale factor
+    const viewport = page.getViewport({ scale });
 
     const canvas = document.createElement('canvas');
     canvas.width = viewport.width;
