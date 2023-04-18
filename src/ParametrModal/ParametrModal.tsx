@@ -35,15 +35,6 @@ const ParameterModal: React.FC<ParameterModalProps> = ({
     return (
       <div className='parameters-wrapper'>
         <label>
-          Номер:
-          <input
-            type='text'
-            name='name'
-            value={formValues.name || ''}
-            onChange={handleInputChange}
-          />
-        </label>
-        <label>
           Группа:
           <input
             type='text'
@@ -53,7 +44,16 @@ const ParameterModal: React.FC<ParameterModalProps> = ({
           />
         </label>
         <label>
-          Мощность, А:
+          Номер:
+          <input
+            type='text'
+            name='name'
+            value={formValues.name || ''}
+            onChange={handleInputChange}
+          />
+        </label>
+        <label>
+          Мощность, Вт:
           <input
             type='text'
             name='power'
@@ -62,7 +62,7 @@ const ParameterModal: React.FC<ParameterModalProps> = ({
           />
         </label>
         <label>
-          Напряжение,V:
+          Напряжение, В:
           <input
             type='text'
             name='voltage'
@@ -79,8 +79,9 @@ const ParameterModal: React.FC<ParameterModalProps> = ({
           >
             <option>---</option>
             <option>PWM</option>
-            <option>TW</option>
-            <option>RGB</option>
+            <option>PWM-TW</option>
+            <option>PWM-RGB</option>
+            <option>PWM-RGBW</option>
             <option>TRIAC</option>
             <option>DALI</option>
             <option>DMX</option>
@@ -104,20 +105,20 @@ const ParameterModal: React.FC<ParameterModalProps> = ({
     return (
       <div className='parameters-wrapper'>
         <label>
-          Номер:
-          <input
-            type='text'
-            name='name'
-            value={formValues.name || ''}
-            onChange={handleInputChange}
-          />
-        </label>
-        <label>
           Группа:
           <input
             type='text'
             name='group'
             value={formValues.group || ''}
+            onChange={handleInputChange}
+          />
+        </label>
+        <label>
+          Номер:
+          <input
+            type='text'
+            name='name'
+            value={formValues.name || ''}
             onChange={handleInputChange}
           />
         </label>
@@ -146,7 +147,7 @@ const ParameterModal: React.FC<ParameterModalProps> = ({
           />
         </label>
         <label>
-          Интерфейсуправления:
+          Интерфейс управления:
           <select
             name='interface'
             value={formValues.interface || ''}
@@ -176,15 +177,6 @@ const ParameterModal: React.FC<ParameterModalProps> = ({
     return (
       <div className='parameters-wrapper'>
         <label>
-          Номер:
-          <input
-            type='text'
-            name='name'
-            value={formValues.name || ''}
-            onChange={handleInputChange}
-          />
-        </label>
-        <label>
           Группа:
           <input
             type='text'
@@ -194,7 +186,16 @@ const ParameterModal: React.FC<ParameterModalProps> = ({
           />
         </label>
         <label>
-          Интерфейсуправления:
+          Номер:
+          <input
+            type='text'
+            name='name'
+            value={formValues.name || ''}
+            onChange={handleInputChange}
+          />
+        </label>
+        <label>
+          Интерфейс управления:
           <select
             name='interface'
             value={formValues.interface || ''}
@@ -203,6 +204,7 @@ const ParameterModal: React.FC<ParameterModalProps> = ({
             <option>---</option>
             <option>DI</option>
             <option>1-wire</option>
+            <option>RS485</option>
           </select>
         </label>
         <label>
@@ -221,24 +223,6 @@ const ParameterModal: React.FC<ParameterModalProps> = ({
   const renderMainPanelParameters = () => {
     return (
       <div className='parameters-wrapper'>
-        <label>
-          Номер:
-          <input
-            type='text'
-            name='name'
-            value={formValues.name || ''}
-            onChange={handleInputChange}
-          />
-        </label>
-        <label>
-          Группа:
-          <input
-            type='text'
-            name='group'
-            value={formValues.group || ''}
-            onChange={handleInputChange}
-          />
-        </label>
         <label>
           Опусĸ ĸабеля, м:
           <input

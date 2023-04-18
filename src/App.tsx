@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { getDocument, GlobalWorkerOptions, version } from 'pdfjs-dist';
 import * as htmlToImage from 'html-to-image';
+import axios from 'axios';
 import 'svg2pdf.js';
 import './App.css';
 import { BulbIcon } from './Icons/BulbIcon';
@@ -26,8 +27,15 @@ const SvgIcon: React.FC<SvgIconProps & { elementType: string; id: string }> = ({
       className='icon'
       draggable='true'
       onDragStart={(e) => {
+        const rect = e.currentTarget.getBoundingClientRect();
+        const offsetX = e.clientX - rect.left;
+        const offsetY = e.clientY - rect.top;
+
         e.dataTransfer.setData('elementType', elementType);
-        e.dataTransfer.setData('iconId', id); // Pass iconId to onDragStart
+        e.dataTransfer.setData('iconId', id);
+        e.dataTransfer.setData('offsetX', offsetX.toString());
+        e.dataTransfer.setData('offsetY', offsetY.toString());
+
         onDragStart(e);
       }}
     >
@@ -71,6 +79,7 @@ const App: React.FC = () => {
     []
   );
   const [creatingScaleLine, setCreatingScaleLine] = useState(false);
+  const [zoomLevel, setZoomLevel] = useState<number>(1);
 
   const handleDragStart = useCallback((e: React.DragEvent<HTMLDivElement>) => {
     e.dataTransfer.setData('text/plain', e.currentTarget.outerHTML);
@@ -129,11 +138,51 @@ const App: React.FC = () => {
     });
   }, []);
 
+  const updateLinesAndVertices = (iconId: string) => {
+    setLines((prevLines) => {
+      const newLines = [...prevLines];
+
+      newLines.forEach((line, index) => {
+        if (line[0] === iconId || line[1] === iconId) {
+          // If the line has vertices, only update the line if it has no vertices
+          if (!vertices[index] || vertices[index].length === 0) {
+            if (line[0] === iconId) {
+              newLines[index][0] = iconId;
+              newLines[index][1] = line[1];
+            } else if (line[1] === iconId) {
+              newLines[index][0] = line[0];
+              newLines[index][1] = iconId;
+            }
+          }
+        }
+      });
+
+      return newLines;
+    });
+
+    // Update the vertices positions
+    setVertices((prevVertices) => {
+      const newVertices = { ...prevVertices };
+      Object.keys(newVertices).forEach((key) => {
+        const lineIndex = parseInt(key);
+        newVertices[lineIndex] = newVertices[lineIndex].map((vertex) => {
+          const [x, y] = vertex;
+          // Update x and y positions for vertices of this line
+          return [x, y];
+        });
+      });
+      return newVertices;
+    });
+  };
+
   const handleDrop = useCallback(
     (e: React.DragEvent<HTMLDivElement>) => {
       e.preventDefault();
       const iconHTML = e.dataTransfer.getData('text/plain');
       const elementType = e.dataTransfer.getData('elementType');
+      const offsetX = parseFloat(e.dataTransfer.getData('offsetX'));
+      const offsetY = parseFloat(e.dataTransfer.getData('offsetY'));
+
       const wrapper = document.createElement('div');
       wrapper.classList.add('icon-wrapper');
       wrapper.innerHTML = iconHTML;
@@ -142,10 +191,12 @@ const App: React.FC = () => {
       const iconId = `${elementType}-${Date.now()}`;
       wrapper.id = iconId;
 
-      const rect = (e.currentTarget as HTMLDivElement).getBoundingClientRect();
+      const browserFrameRect = browserFrameRef.current?.getBoundingClientRect();
+      if (!browserFrameRect) return;
+
       wrapper.style.position = 'absolute';
-      wrapper.style.left = `${e.clientX - rect.left}px`;
-      wrapper.style.top = `${e.clientY - rect.top}px`;
+      wrapper.style.left = `${e.clientX - browserFrameRect.left - offsetX}px`;
+      wrapper.style.top = `${e.clientY - browserFrameRect.top - offsetY}px`;
 
       let isDragging = false;
       let startX = 0;
@@ -234,9 +285,15 @@ const App: React.FC = () => {
           newVertices[lineIndex][vertexIndex] = [x, y];
           return newVertices;
         });
-      } else if (draggedIconRef.current) {
+      }
+
+      if (draggedIconRef.current) {
         draggedIconRef.current.style.left = `${x}px`;
         draggedIconRef.current.style.top = `${y}px`;
+
+        const iconId = draggedIconRef.current.id;
+
+        updateLinesAndVertices(iconId);
       }
     };
 
@@ -260,9 +317,54 @@ const App: React.FC = () => {
         browserFrameRef.current.removeEventListener('mouseup', handleMouseUp);
       }
     };
-  }, [draggedVertex]);
+  }, [draggedVertex, updateLinesAndVertices]);
 
   const onModalClose = (parameters: any) => {
+    // const auth = new google.auth.GoogleAuth({
+    //   keyFile: 'credentials.json',
+    //   scopes: 'https://www.googleapis.com/auth/spreadsheets',
+    // });
+    // const client = await auth.getClient();
+
+    // const googleSheets = google.sheets({ version: 'v4', auth: client });
+
+    // const spreadsheetId = '1fQOFenTyu1rvZqoNl23T6hK0uRsDQHjoxQv5AZQhi50';
+
+    // await googleSheets.spreadsheets.values.append({
+    //   auth,
+    //   spreadsheetId,
+    //   range: 'Lights',
+    //   valueInputOption: 'USER_ENTERED',
+    //   requestBody: {
+    //     values: [['12312']],
+    //   },
+    // });
+    // console.log(parameters);
+
+    // const data = JSON.stringify({
+    //   Group: parameters.group,
+    //   Name: parameters.name,
+    //   Voltage: parameters.voltage,
+    //   Power: parameters.power,
+    //   Interface: parameters.interface,
+    //   Cable: parameters.cable,
+    // });
+
+    // const data = new FormData(parameters);
+
+    // axios.post(
+    //   'https://script.google.com/macros/s/AKfycbyPH1nYofJHxM33_IsFfHT0LcVe0EulbzJsu8tMJwChccMlNaqvWFIr1UqHOQKUOOcyKA/exec',
+    //   data,
+    //   { headers: { 'Content-Type': 'text/plain' } }
+    // );
+    // fetch(
+    //   'https://script.google.com/macros/s/AKfycbwkuIJOh82rz1HjWGHKbtduGgMZLn7Kb4w_9snCBV5EWIFvCxi_cOXPrrMFt25xgUmZJg/exec',
+    //   {
+    //     method: 'POST',
+    //     body: {Group: parameters.group},
+    //   }
+    // );
+
     setIconParameters((prevParameters) => {
       return { ...prevParameters, [currentIconId]: parameters };
     });
@@ -391,13 +493,27 @@ const App: React.FC = () => {
 
   const calculateLineLengths = () => {
     const lines = document.querySelectorAll('.lines-container g.line polyline');
-    let totalLength = 0;
     const groupLengths: { [key: string]: number } = {};
+    let groupStartLengths: { [key: string]: number } = {}; // опуск кабеля
 
     lines.forEach((line) => {
       const group = line.getAttribute('data-group');
       const points = line.getAttribute('points');
+
       if (points && group) {
+        let startingLenghtCable = 0;
+        Object.entries(iconParameters).map(([key, value]) => {
+          if (value.cable && value.group === group) {
+            startingLenghtCable += Number(value.cable);
+          }
+        });
+
+        if (!groupStartLengths[group]) {
+          groupStartLengths[group] = 0;
+        }
+
+        groupStartLengths[group] += startingLenghtCable;
+
         const pointList = points
           .trim()
           .split(' ')
@@ -409,39 +525,38 @@ const App: React.FC = () => {
 
           if (!isNaN(x1) && !isNaN(y1) && !isNaN(x2) && !isNaN(y2)) {
             const length = Math.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2);
-            totalLength += length;
 
             if (!groupLengths[group]) {
               groupLengths[group] = 0;
             }
+
             groupLengths[group] += length;
           }
         }
       }
     });
-    const totalLengthInCm = scaleLine.scale
-      ? totalLength / scaleLine.scale
-      : totalLength;
 
     let alertString = '';
 
     Object.entries(groupLengths).map(([key, value]) => {
       alertString =
         alertString +
-        `Group ${key}: ${
+        `Группа ${key}: ${
           scaleLine.scale
-            ? `${(value / scaleLine.scale).toFixed(2)} m \n`
-            : `${value.toFixed(2)} px \n`
-        }`;
+            ? `${
+                (value / scaleLine.scale).toFixed(2) +
+                groupStartLengths[key].valueOf()
+              } m`
+            : `${value.toFixed(2)} px`
+        }
+      ${
+        groupStartLengths[key]
+          ? `из них опуски: ${groupStartLengths[key].valueOf()} m\n\n`
+          : ''
+      }`;
     });
 
     alert(alertString);
-
-    // alert(
-    //   `Total length of all lines: ${totalLengthInCm.toFixed(2)}${
-    //     scaleLine.scale ? ' m' : ' px'
-    //   }`
-    // );
   };
 
   const downloadImage = async () => {
@@ -519,6 +634,29 @@ const App: React.FC = () => {
     }
   };
 
+  const getAdjustedCoordinates = (
+    x1: number,
+    y1: number,
+    x2: number,
+    y2: number,
+    zoomLevel: number
+  ) => {
+    const adjustedX1 = x1 / zoomLevel;
+    const adjustedY1 = y1 / zoomLevel;
+    const adjustedX2 = x2 / zoomLevel;
+    const adjustedY2 = y2 / zoomLevel;
+
+    return [adjustedX1, adjustedY1, adjustedX2, adjustedY2];
+  };
+
+  const handleZoomIn = () => {
+    setZoomLevel((prevZoom) => Math.min(prevZoom + 0.1, 3));
+  };
+
+  const handleZoomOut = () => {
+    setZoomLevel((prevZoom) => Math.max(prevZoom - 0.1, 0.5));
+  };
+
   useEffect(() => {
     const handleMouseMove = (e: MouseEvent) => {
       if (!creatingScaleLine) return;
@@ -550,6 +688,92 @@ const App: React.FC = () => {
     };
   }, [creatingScaleLine]);
 
+  const calculateLineCoordinates = (
+    from: string,
+    to: string,
+    zoomLevel: number
+  ) => {
+    const fromElement = document.getElementById(from);
+    const toElement = document.getElementById(to);
+
+    if (!fromElement || !toElement) return null;
+
+    const svgRect = (
+      browserFrameRef.current as HTMLDivElement
+    ).getBoundingClientRect();
+    const fromRect = fromElement.getBoundingClientRect();
+    const toRect = toElement.getBoundingClientRect();
+    const x1 = fromRect.left + fromRect.width / 2 - svgRect.left;
+    const y1 = fromRect.top + fromRect.height / 2 - svgRect.top;
+    const x2 = toRect.left + toRect.width / 2 - svgRect.left;
+    const y2 = toRect.top + toRect.height / 2 - svgRect.top;
+    const [adjustedX1, adjustedY1, adjustedX2, adjustedY2] =
+      getAdjustedCoordinates(x1, y1, x2, y2, zoomLevel);
+    return [adjustedX1, adjustedY1, adjustedX2, adjustedY2];
+  };
+
+  const updateLines = (lines: [string, string][], zoomLevel: number) => {
+    lines.forEach(([from, to], lineIndex) => {
+      if (!browserFrameRef.current) return;
+      const fromElement = document.getElementById(from);
+      const toElement = document.getElementById(to);
+
+      if (!fromElement || !toElement) return;
+
+      const svgRect = browserFrameRef.current.getBoundingClientRect();
+      const fromRect = fromElement.getBoundingClientRect();
+      const toRect = toElement.getBoundingClientRect();
+
+      const x1 = fromRect.left + fromRect.width / 2 - svgRect.left;
+      const y1 = fromRect.top + fromRect.height / 2 - svgRect.top;
+      const x2 = toRect.left + toRect.width / 2 - svgRect.left;
+      const y2 = toRect.top + toRect.height / 2 - svgRect.top;
+
+      const [adjustedX1, adjustedY1, adjustedX2, adjustedY2] =
+        getAdjustedCoordinates(x1, y1, x2, y2, zoomLevel);
+
+      // Update the positions of the polyline points
+      const lineElement = document.querySelector(
+        `.line polyline[data-line-index="${lineIndex}"]`
+      );
+      if (lineElement) {
+        lineElement.setAttribute(
+          'points',
+          `${adjustedX1},${adjustedY1} ${adjustedX2},${adjustedY2}`
+        );
+      }
+    });
+  };
+
+  // const debouncedUpdateLines = debounce(updateLines, 50);
+
+  useEffect(() => {
+    updateLines(lines, zoomLevel);
+  }, [lines, zoomLevel]);
+
+  function debounce<F extends (...args: any[]) => any>(
+    func: F,
+    wait: number
+  ): F {
+    let timeout: ReturnType<typeof setTimeout> | null;
+
+    const debouncedFunction = (...args: Parameters<F>) => {
+      const later = () => {
+        if (timeout !== null) {
+          clearTimeout(timeout);
+        }
+        func(...args);
+      };
+
+      if (timeout !== null) {
+        clearTimeout(timeout);
+      }
+      timeout = setTimeout(later, wait);
+    };
+
+    return debouncedFunction as F;
+  }
+
   return (
     <div className='App'>
       <div className='sidebar'>
@@ -577,6 +801,12 @@ const App: React.FC = () => {
           iconType={'mainPanel'}
           id={''}
         />
+        <button onClick={handleZoomIn} className='zoomInButton'>
+          Zoom In
+        </button>
+        <button onClick={handleZoomOut} className='zoomOutButton'>
+          Zoom Out
+        </button>
         <input
           type='file'
           ref={fileInputRef}
@@ -612,6 +842,10 @@ const App: React.FC = () => {
         ref={browserFrameRef}
         onDragOver={handleDragOver}
         onDrop={handleDrop}
+        style={{
+          transform: `scale(${zoomLevel})`,
+          transformOrigin: 'top left',
+        }}
       >
         {scaleLinePoints.length !== 3 && (
           <svg
@@ -657,7 +891,14 @@ const App: React.FC = () => {
           {lines.map(([from, to], lineIndex) => {
             const fromElement = document.getElementById(from);
             const toElement = document.getElementById(to);
+            const lineCoordinates = calculateLineCoordinates(
+              from,
+              to,
+              zoomLevel
+            );
+            if (!lineCoordinates) return null;
 
+            const [x1, y1, x2, y2] = lineCoordinates;
             let groupFrom;
             let groupTo;
             let lineGroup;
@@ -676,16 +917,6 @@ const App: React.FC = () => {
 
             if (!fromElement || !toElement) return null;
 
-            const svgRect = (
-              browserFrameRef.current as HTMLDivElement
-            ).getBoundingClientRect();
-            const fromRect = fromElement.getBoundingClientRect();
-            const toRect = toElement.getBoundingClientRect();
-            const x1 = fromRect.left + fromRect.width / 2 - svgRect.left;
-            const y1 = fromRect.top + fromRect.height / 2 - svgRect.top;
-            const x2 = toRect.left + toRect.width / 2 - svgRect.left;
-            const y2 = toRect.top + toRect.height / 2 - svgRect.top;
-
             const lineVertices = vertices[lineIndex] || [];
 
             return (
@@ -696,6 +927,7 @@ const App: React.FC = () => {
                     .map((vertex) => vertex.join(','))
                     .join(' ')} ${x2},${y2}`}
                   fill='none'
+                  data-line-index={lineIndex}
                   stroke='black'
                   strokeWidth='2'
                   data-group={lineGroup}

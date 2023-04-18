@@ -195,6 +195,17 @@ iframe {
   bottom: 160px;
 }
 
+.zoomInButton {
+  position: absolute;
+  width: 70px;
+  bottom: 260px;
+}
+.zoomOutButton {
+  position: absolute;
+  width: 70px;
+  bottom: 290px;
+}
+
 .parameters {
   position: absolute;
   top: 100%;
