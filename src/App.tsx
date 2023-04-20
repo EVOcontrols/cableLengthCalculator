@@ -556,9 +556,10 @@ const App: React.FC = () => {
         const data = {
           elementType: 'cableLength',
           Group: key,
-          Length:
-            (value / scaleLine.scale).toFixed(2) +
-            groupStartLengths[key].valueOf(),
+          Length: (
+            value / scaleLine.scale +
+            Number(groupStartLengths[key])
+          ).toFixed(2),
         };
 
         fetch(process.env.REACT_APP_GOOGLE_SHEETS_URL, {
