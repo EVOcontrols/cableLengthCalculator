@@ -505,9 +505,7 @@ const App: React.FC = () => {
           }
         });
 
-        if (!groupStartLengths[group]) {
-          groupStartLengths[group] = 0;
-        }
+        groupStartLengths[group] = 0;
 
         groupStartLengths[group] += startingLenghtCable;
 
