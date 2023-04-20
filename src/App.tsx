@@ -340,24 +340,24 @@ const App: React.FC = () => {
       Cable: parameters.cable || '',
     };
 
-    if (
-      data.elementType !== 'mainPanel' &&
-      process.env.REACT_APP_GOOGLE_SHEETS_URL
-    ) {
+    if (data.elementType !== 'mainPanel') {
       try {
-        fetch(process.env.REACT_APP_GOOGLE_SHEETS_URL, {
-          redirect: 'follow',
-          method: 'POST',
-          body: JSON.stringify(data),
-          headers: {
-            'Content-Type': 'text/plain;charset=utf-8',
-          },
-        });
+        fetch(
+          'https://script.google.com/macros/s/AKfycbya__p6uVN6b1GTb96STwgFqGya5TE95TIVhnhZop9LPSw0SaXxvaWLNJ0S5fomasnn_A/exec',
+          {
+            redirect: 'follow',
+            method: 'POST',
+            body: JSON.stringify(data),
+            headers: {
+              'Content-Type': 'text/plain;charset=utf-8',
+            },
+          }
+        );
       } catch (e) {
         console.log(e);
       }
     } else {
-      console.log('set REACT_APP_GOOGLE_SHEETS_URL at .env or its mainPanel');
+      console.log('its mainPanel');
     }
 
     setIconParameters((prevParameters) => {
@@ -552,7 +552,7 @@ const App: React.FC = () => {
           : ''
       }`;
 
-      if (process.env.REACT_APP_GOOGLE_SHEETS_URL && scaleLine.scale) {
+      if (scaleLine.scale) {
         const data = {
           elementType: 'cableLength',
           Group: key,
@@ -562,14 +562,17 @@ const App: React.FC = () => {
           ).toFixed(2),
         };
 
-        fetch(process.env.REACT_APP_GOOGLE_SHEETS_URL, {
-          redirect: 'follow',
-          method: 'POST',
-          body: JSON.stringify(data),
-          headers: {
-            'Content-Type': 'text/plain;charset=utf-8',
-          },
-        });
+        fetch(
+          'https://script.google.com/macros/s/AKfycbya__p6uVN6b1GTb96STwgFqGya5TE95TIVhnhZop9LPSw0SaXxvaWLNJ0S5fomasnn_A/exec',
+          {
+            redirect: 'follow',
+            method: 'POST',
+            body: JSON.stringify(data),
+            headers: {
+              'Content-Type': 'text/plain;charset=utf-8',
+            },
+          }
+        );
       }
     });
 
