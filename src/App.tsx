@@ -51,7 +51,6 @@ const App: React.FC = () => {
   const browserFrameRef = useRef<HTMLDivElement>(null);
   const draggedIconRef = useRef<HTMLDivElement | null>(null);
   const mouseOffsetRef = useRef<[number, number] | null>(null);
-  const [selectedIcons, setSelectedIcons] = useState<string[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [vertices, setVertices] = useState<{
     [key: string]: [number, number][];
@@ -94,19 +93,6 @@ const App: React.FC = () => {
       const iconElement = document.getElementById(iconId);
       if (!iconElement) return;
 
-      setSelectedIcons((prevSelected) => {
-        const newSelected = [...prevSelected, iconId];
-
-        if (newSelected.length === 2) {
-          setLines((prevLines) => [
-            ...prevLines,
-            [newSelected[0], newSelected[1]],
-          ]);
-          return [];
-        }
-
-        return newSelected;
-      });
       setCurrentElementType((prevState) => {
         return {
           ...prevState,
@@ -124,11 +110,6 @@ const App: React.FC = () => {
     if (iconElement) {
       iconElement.remove();
     }
-
-    // Remove the icon from the selected icons state
-    setSelectedIcons((prevSelected) => {
-      return prevSelected.filter((id) => id !== iconId);
-    });
 
     // Remove any lines connected to the icon
     setLines((prevLines) => {
@@ -331,11 +312,25 @@ const App: React.FC = () => {
       Cable: parameters.cable || '',
     };
 
-    axios.post(
-      'https://script.google.com/macros/s/AKfycbyherCqE3VEi3soiYOMoyvnuvaJJLRtNDHLHXRJKtBstm6j5Z0fMlxsKZSUCVnu0g40Ug/exec',
-      data,
-      { headers: { 'Content-Type': 'text/plain' } }
-    );
+    if (
+      data.elementType !== 'mainPanel' &&
+      process.env.REACT_APP_GOOGLE_SHEETS_URL
+    ) {
+      try {
+        fetch(process.env.REACT_APP_GOOGLE_SHEETS_URL, {
+          redirect: 'follow',
+          method: 'POST',
+          body: JSON.stringify(data),
+          headers: {
+            'Content-Type': 'text/plain;charset=utf-8',
+          },
+        });
+      } catch (e) {
+        console.log(e);
+      }
+    } else {
+      console.log('set REACT_APP_GOOGLE_SHEETS_URL at .env or its mainPanel');
+    }
 
     setIconParameters((prevParameters) => {
       return { ...prevParameters, [currentIconId]: parameters };

@@ -19,10 +19,6 @@ const ParameterModal: React.FC<ParameterModalProps> = ({
   const [formValues, setFormValues] = useState(parameters);
 
   useEffect(() => {
-    setFormValues({ elementType });
-  }, [elementType]);
-
-  useEffect(() => {
     !formValues && setFormValues(parameters);
   }, [parameters, formValues]);
 
@@ -248,7 +244,7 @@ const ParameterModal: React.FC<ParameterModalProps> = ({
       {elementType === 'mainPanel' && renderMainPanelParameters()}
       <button
         onClick={() => {
-          onClose(formValues);
+          onClose({ ...formValues, elementType });
           setFormValues({});
         }}
       >
