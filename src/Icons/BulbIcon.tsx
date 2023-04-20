@@ -4,23 +4,27 @@ type BulbIconType = {
   width?: string;
   height?: string;
   fill?: string;
+  zoomLevel?: number;
 };
 
 export const BulbIcon: React.FC<BulbIconType> = ({
   height = '25',
   width = '25',
   fill = '#000',
+  zoomLevel = 1,
 }) => (
   <svg
     version='1.0'
     xmlns='http://www.w3.org/2000/svg'
-    width={width}
-    height={height}
-    viewBox={`0 0 ${width} ${height}`}
+    width={Number(width) / zoomLevel}
+    height={Number(height) / zoomLevel}
+    viewBox={`0 0 ${Number(width) / zoomLevel} ${Number(height) / zoomLevel}`}
     preserveAspectRatio='xMidYMid meet'
   >
     <g
-      transform='translate(0.000000,25.000000) scale(0.00500000,-0.00500000)'
+      transform={`translate(0.000000,${25 / zoomLevel}) scale(${
+        0.005 / zoomLevel
+      },${-0.005 / zoomLevel})`}
       fill={fill}
       stroke='none'
     >

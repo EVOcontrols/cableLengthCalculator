@@ -1,7 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { getDocument, GlobalWorkerOptions, version } from 'pdfjs-dist';
 import * as htmlToImage from 'html-to-image';
-import axios from 'axios';
 import 'svg2pdf.js';
 import './App.css';
 import { BulbIcon } from './Icons/BulbIcon';
@@ -15,11 +14,15 @@ GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${versi
 interface SvgIconProps {
   iconType: 'bulb' | 'sensor' | 'switch' | 'mainPanel';
   onDragStart: (e: React.DragEvent<HTMLDivElement>) => void;
+  elementType: string;
+  id: string;
+  zoomLevel?: number;
 }
 
-const SvgIcon: React.FC<SvgIconProps & { elementType: string; id: string }> = ({
+const SvgIcon: React.FC<SvgIconProps> = ({
   onDragStart,
   elementType,
+  zoomLevel,
   id,
 }) => {
   return (
@@ -39,7 +42,7 @@ const SvgIcon: React.FC<SvgIconProps & { elementType: string; id: string }> = ({
         onDragStart(e);
       }}
     >
-      {elementType === 'bulb' && <BulbIcon />}
+      {elementType === 'bulb' && <BulbIcon zoomLevel={zoomLevel} />}
       {elementType === 'sensor' && <SensorIcon />}
       {elementType === 'switch' && <SwitchIcon />}
       {elementType === 'mainPanel' && <MainPanelIcon />}
@@ -52,6 +55,7 @@ const App: React.FC = () => {
   const draggedIconRef = useRef<HTMLDivElement | null>(null);
   const mouseOffsetRef = useRef<[number, number] | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [selectedIcons, setSelectedIcons] = useState<string[]>([]);
   const [vertices, setVertices] = useState<{
     [key: string]: [number, number][];
   }>({});
@@ -93,6 +97,20 @@ const App: React.FC = () => {
       const iconElement = document.getElementById(iconId);
       if (!iconElement) return;
 
+      setSelectedIcons((prevSelected) => {
+        const newSelected = [...prevSelected, iconId];
+
+        if (newSelected.length === 2) {
+          setLines((prevLines) => [
+            ...prevLines,
+            [newSelected[0], newSelected[1]],
+          ]);
+          return [];
+        }
+
+        return newSelected;
+      });
+
       setCurrentElementType((prevState) => {
         return {
           ...prevState,
@@ -111,6 +129,10 @@ const App: React.FC = () => {
       iconElement.remove();
     }
 
+    setSelectedIcons((prevSelected) => {
+      return prevSelected.filter((id) => id !== iconId);
+    });
+
     // Remove any lines connected to the icon
     setLines((prevLines) => {
       return prevLines.filter(
@@ -119,42 +141,45 @@ const App: React.FC = () => {
     });
   }, []);
 
-  const updateLinesAndVertices = (iconId: string) => {
-    setLines((prevLines) => {
-      const newLines = [...prevLines];
+  const updateLinesAndVertices = useCallback(
+    (iconId: string) => {
+      setLines((prevLines) => {
+        const newLines = [...prevLines];
 
-      newLines.forEach((line, index) => {
-        if (line[0] === iconId || line[1] === iconId) {
-          // If the line has vertices, only update the line if it has no vertices
-          if (!vertices[index] || vertices[index].length === 0) {
-            if (line[0] === iconId) {
-              newLines[index][0] = iconId;
-              newLines[index][1] = line[1];
-            } else if (line[1] === iconId) {
-              newLines[index][0] = line[0];
-              newLines[index][1] = iconId;
+        newLines.forEach((line, index) => {
+          if (line[0] === iconId || line[1] === iconId) {
+            // If the line has vertices, only update the line if it has no vertices
+            if (!vertices[index] || vertices[index].length === 0) {
+              if (line[0] === iconId) {
+                newLines[index][0] = iconId;
+                newLines[index][1] = line[1];
+              } else if (line[1] === iconId) {
+                newLines[index][0] = line[0];
+                newLines[index][1] = iconId;
+              }
             }
           }
-        }
-      });
-
-      return newLines;
-    });
-
-    // Update the vertices positions
-    setVertices((prevVertices) => {
-      const newVertices = { ...prevVertices };
-      Object.keys(newVertices).forEach((key) => {
-        const lineIndex = parseInt(key);
-        newVertices[lineIndex] = newVertices[lineIndex].map((vertex) => {
-          const [x, y] = vertex;
-          // Update x and y positions for vertices of this line
-          return [x, y];
         });
+
+        return newLines;
       });
-      return newVertices;
-    });
-  };
+
+      // Update the vertices positions
+      setVertices((prevVertices) => {
+        const newVertices = { ...prevVertices };
+        Object.keys(newVertices).forEach((key) => {
+          const lineIndex = parseInt(key);
+          newVertices[lineIndex] = newVertices[lineIndex].map((vertex) => {
+            const [x, y] = vertex;
+            // Update x and y positions for vertices of this line
+            return [x, y];
+          });
+        });
+        return newVertices;
+      });
+    },
+    [vertices]
+  );
 
   const handleDrop = useCallback(
     (e: React.DragEvent<HTMLDivElement>) => {
@@ -176,8 +201,12 @@ const App: React.FC = () => {
       if (!browserFrameRect) return;
 
       wrapper.style.position = 'absolute';
-      wrapper.style.left = `${e.clientX - browserFrameRect.left - offsetX}px`;
-      wrapper.style.top = `${e.clientY - browserFrameRect.top - offsetY}px`;
+      wrapper.style.left = `${
+        (e.clientX - browserFrameRect.left - offsetX) / zoomLevel
+      }px`;
+      wrapper.style.top = `${
+        (e.clientY - browserFrameRect.top - offsetY) / zoomLevel
+      }px`;
 
       let isDragging = false;
       let startX = 0;
@@ -205,9 +234,8 @@ const App: React.FC = () => {
           if (!isDragging) return;
 
           e.stopPropagation();
-
-          const diffX = e.clientX - startX;
-          const diffY = e.clientY - startY;
+          const diffX = (e.clientX - startX) / zoomLevel;
+          const diffY = (e.clientY - startY) / zoomLevel;
 
           wrapper.style.left = `${startLeft + diffX}px`;
           wrapper.style.top = `${startTop + diffY}px`;
@@ -248,7 +276,7 @@ const App: React.FC = () => {
       setCurrentIconId(iconId);
       setIsModalOpen(true);
     },
-    [handleIconClick, handleDeleteIcon]
+    [handleIconClick, handleDeleteIcon, zoomLevel]
   );
 
   useEffect(() => {
@@ -256,8 +284,8 @@ const App: React.FC = () => {
       if (!mouseOffsetRef.current) return;
 
       const [dx, dy] = mouseOffsetRef.current;
-      const x = e.clientX - dx;
-      const y = e.clientY - dy;
+      const x = e.clientX - dx / zoomLevel;
+      const y = e.clientY - dy / zoomLevel;
 
       if (draggedVertex) {
         const [lineIndex, vertexIndex] = draggedVertex;
@@ -298,7 +326,7 @@ const App: React.FC = () => {
         browserFrameRef.current.removeEventListener('mouseup', handleMouseUp);
       }
     };
-  }, [draggedVertex, updateLinesAndVertices]);
+  }, [draggedVertex, updateLinesAndVertices, zoomLevel]);
 
   const onModalClose = (parameters: any) => {
     const data = {
@@ -471,7 +499,7 @@ const App: React.FC = () => {
 
       if (points && group) {
         let startingLenghtCable = 0;
-        Object.entries(iconParameters).map(([key, value]) => {
+        Object.entries(iconParameters).forEach(([key, value]) => {
           if (value.cable && value.group === group) {
             startingLenghtCable += Number(value.cable);
           }
@@ -507,7 +535,7 @@ const App: React.FC = () => {
 
     let alertString = '';
 
-    Object.entries(groupLengths).map(([key, value]) => {
+    Object.entries(groupLengths).forEach(([key, value]) => {
       alertString =
         alertString +
         `Группа ${key}: ${
@@ -561,12 +589,23 @@ const App: React.FC = () => {
     const x = e.clientX - svgRect.left;
     const y = e.clientY - svgRect.top;
 
+    const [adjustedX, adjustedY] = getAdjustedCoordinates(
+      x,
+      y,
+      0,
+      0,
+      zoomLevel
+    );
+
     if (scaleLine.points.length === 0) {
-      setScaleLine({ ...scaleLine, points: [[x, y]] });
+      setScaleLine({ ...scaleLine, points: [[adjustedX, adjustedY]] });
     } else if (scaleLine.points.length === 1) {
       setScaleLinePoints([]);
     } else {
-      setScaleLine({ ...scaleLine, points: [...scaleLine.points, [x, y]] });
+      setScaleLine({
+        ...scaleLine,
+        points: [...scaleLine.points, [adjustedX, adjustedY]],
+      });
       setIsScaleModalOpen(true);
       setIsScaleMode(false);
     }
@@ -593,12 +632,20 @@ const App: React.FC = () => {
     const x = e.clientX - svgRect.left;
     const y = e.clientY - svgRect.top;
 
+    const [adjustedX, adjustedY] = getAdjustedCoordinates(
+      x,
+      y,
+      0,
+      0,
+      zoomLevel
+    );
+
     if (!creatingScaleLine) {
       setCreatingScaleLine(true);
-      setScaleLinePoints([[x, y]]);
+      setScaleLinePoints([[adjustedX, adjustedY]]);
     } else {
       setCreatingScaleLine(false);
-      setScaleLinePoints([...scaleLinePoints, [x, y]]);
+      setScaleLinePoints([...scaleLinePoints, [adjustedX, adjustedY]]);
       setIsScaleModalOpen(true);
     }
   };
@@ -636,9 +683,17 @@ const App: React.FC = () => {
       const x = e.clientX - svgRect.left;
       const y = e.clientY - svgRect.top;
 
+      const [adjustedX, adjustedY] = getAdjustedCoordinates(
+        x,
+        y,
+        0,
+        0,
+        zoomLevel
+      );
+
       setScaleLinePoints((prevPoints) => {
         const newPoints = [...prevPoints];
-        newPoints[1] = [x, y];
+        newPoints[1] = [adjustedX, adjustedY];
         return newPoints;
       });
     };
@@ -714,34 +769,9 @@ const App: React.FC = () => {
     });
   };
 
-  // const debouncedUpdateLines = debounce(updateLines, 50);
-
   useEffect(() => {
     updateLines(lines, zoomLevel);
   }, [lines, zoomLevel]);
-
-  function debounce<F extends (...args: any[]) => any>(
-    func: F,
-    wait: number
-  ): F {
-    let timeout: ReturnType<typeof setTimeout> | null;
-
-    const debouncedFunction = (...args: Parameters<F>) => {
-      const later = () => {
-        if (timeout !== null) {
-          clearTimeout(timeout);
-        }
-        func(...args);
-      };
-
-      if (timeout !== null) {
-        clearTimeout(timeout);
-      }
-      timeout = setTimeout(later, wait);
-    };
-
-    return debouncedFunction as F;
-  }
 
   return (
     <div className='App'>
@@ -939,8 +969,8 @@ const App: React.FC = () => {
           if (!iconElement) return null;
 
           const iconRect = iconElement.getBoundingClientRect();
-          const x = iconRect.left + iconRect.width;
-          const y = iconRect.top;
+          const x = (iconRect.left + iconRect.width) / zoomLevel;
+          const y = iconRect.top / zoomLevel;
 
           return (
             <div
