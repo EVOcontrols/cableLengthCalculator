@@ -543,14 +543,33 @@ const App: React.FC = () => {
             ? `${
                 (value / scaleLine.scale).toFixed(2) +
                 groupStartLengths[key].valueOf()
-              } m`
+              } m\n\n`
             : `${value.toFixed(2)} px`
-        }
-      ${
-        groupStartLengths[key]
-          ? `из них опуски: ${groupStartLengths[key].valueOf()} m\n\n`
-          : ''
-      }`;
+        }`;
+      // ${
+      //   groupStartLengths[key]
+      //     ? `из них опуски: ${groupStartLengths[key].valueOf()} m\n\n`
+      //     : ''
+      // }`;
+
+      if (process.env.REACT_APP_GOOGLE_SHEETS_URL && scaleLine.scale) {
+        const data = {
+          elementType: 'cableLength',
+          Group: key,
+          Length:
+            (value / scaleLine.scale).toFixed(2) +
+            groupStartLengths[key].valueOf(),
+        };
+
+        fetch(process.env.REACT_APP_GOOGLE_SHEETS_URL, {
+          redirect: 'follow',
+          method: 'POST',
+          body: JSON.stringify(data),
+          headers: {
+            'Content-Type': 'text/plain;charset=utf-8',
+          },
+        });
+      }
     });
 
     alert(alertString);
