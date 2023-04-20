@@ -540,17 +540,17 @@ const App: React.FC = () => {
         alertString +
         `Группа ${key}: ${
           scaleLine.scale
-            ? `${
-                (value / scaleLine.scale).toFixed(2) +
-                groupStartLengths[key].valueOf()
-              } m\n\n`
+            ? `${(
+                value / scaleLine.scale +
+                Number(groupStartLengths[key])
+              ).toFixed(2)} m`
             : `${value.toFixed(2)} px`
-        }`;
-      // ${
-      //   groupStartLengths[key]
-      //     ? `из них опуски: ${groupStartLengths[key].valueOf()} m\n\n`
-      //     : ''
-      // }`;
+        }
+      ${
+        groupStartLengths[key]
+          ? `из них опуски: ${groupStartLengths[key].valueOf()} m\n\n`
+          : ''
+      }`;
 
       if (process.env.REACT_APP_GOOGLE_SHEETS_URL && scaleLine.scale) {
         const data = {
