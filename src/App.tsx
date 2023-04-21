@@ -92,6 +92,11 @@ const App: React.FC = () => {
     e.preventDefault();
   }, []);
 
+  // const linesRef = useRef(lines);
+  // useEffect(() => {
+  //   linesRef.current = lines;
+  // }, [lines]);
+
   const handleIconClick = useCallback(
     (iconId: string, elementType?: string) => {
       const iconElement = document.getElementById(iconId);
@@ -101,10 +106,22 @@ const App: React.FC = () => {
         const newSelected = [...prevSelected, iconId];
 
         if (newSelected.length === 2) {
+          // Check if the line already exists
+          // const lineExists = linesRef.current.some(
+          //   (line) =>
+          //     (line[0] === newSelected[0] && line[1] === newSelected[1]) ||
+          //     (line[0] === newSelected[1] && line[1] === newSelected[0])
+          // );
+
+          // If the line doesn't exist, add it
+          // if (!lineExists) {
+
           setLines((prevLines) => [
             ...prevLines,
             [newSelected[0], newSelected[1]],
           ]);
+          // }
+
           return [];
         }
 
@@ -119,8 +136,12 @@ const App: React.FC = () => {
         };
       });
     },
-    []
+    [selectedIcons]
   );
+
+  useEffect(() => {
+    console.log('useeffect: ', lines);
+  }, [lines]);
 
   const handleDeleteIcon = useCallback((iconId: string) => {
     // Remove the icon from the DOM
@@ -222,6 +243,7 @@ const App: React.FC = () => {
         startY = e.clientY;
         startLeft = wrapper.offsetLeft;
         startTop = wrapper.offsetTop;
+        handleIconClick(iconId, elementType);
       });
 
       wrapper.addEventListener('contextmenu', (e) => {
@@ -266,11 +288,6 @@ const App: React.FC = () => {
         });
       }
 
-      wrapper.addEventListener('click', (e) => {
-        e.stopPropagation();
-        handleIconClick(iconId);
-      });
-
       e.currentTarget.appendChild(wrapper);
       setCurrentElementType({ type: elementType, id: iconId });
       setCurrentIconId(iconId);
@@ -297,6 +314,32 @@ const App: React.FC = () => {
           newVertices[lineIndex][vertexIndex] = [adjustedX, adjustedY];
           return newVertices;
         });
+
+        // Update the polyline element
+        const polyline = document.getElementById(`line-${lineIndex}`);
+        if (polyline) {
+          const line = lines[lineIndex];
+          const startIcon = document.getElementById(line[0]);
+          const endIcon = document.getElementById(line[1]);
+
+          if (startIcon && endIcon) {
+            const points = [
+              [
+                startIcon.offsetLeft + startIcon.offsetWidth / 2,
+                startIcon.offsetTop + startIcon.offsetHeight / 2,
+              ],
+              ...vertices[lineIndex],
+              [
+                endIcon.offsetLeft + endIcon.offsetWidth / 2,
+                endIcon.offsetTop + endIcon.offsetHeight / 2,
+              ],
+            ]
+              .map(([x, y]) => `${x},${y}`)
+              .join(' ');
+
+            polyline.setAttribute('points', points);
+          }
+        }
       }
 
       if (draggedIconRef.current) {
@@ -324,7 +367,7 @@ const App: React.FC = () => {
       document.removeEventListener('mousemove', handleMouseMove);
       document.removeEventListener('mouseup', handleMouseUp);
     };
-  }, [draggedVertex, updateLinesAndVertices, zoomLevel]);
+  }, [draggedVertex, updateLinesAndVertices, zoomLevel, lines, vertices]);
 
   const onModalClose = (parameters: any) => {
     const data = {
@@ -487,7 +530,7 @@ const App: React.FC = () => {
   };
 
   const calculateLineLengths = () => {
-    const lines = document.querySelectorAll('.lines-container g.line polyline');
+    const lines = document.querySelectorAll('.lines-container polyline');
     const groupLengths: { [key: string]: number } = {};
     let groupStartLengths: { [key: string]: number } = {}; // опуск кабеля
 
@@ -732,30 +775,6 @@ const App: React.FC = () => {
     };
   }, [creatingScaleLine]);
 
-  const calculateLineCoordinates = (
-    from: string,
-    to: string,
-    zoomLevel: number
-  ) => {
-    const fromElement = document.getElementById(from);
-    const toElement = document.getElementById(to);
-
-    if (!fromElement || !toElement) return null;
-
-    const svgRect = (
-      browserFrameRef.current as HTMLDivElement
-    ).getBoundingClientRect();
-    const fromRect = fromElement.getBoundingClientRect();
-    const toRect = toElement.getBoundingClientRect();
-    const x1 = fromRect.left + fromRect.width / 2 - svgRect.left;
-    const y1 = fromRect.top + fromRect.height / 2 - svgRect.top;
-    const x2 = toRect.left + toRect.width / 2 - svgRect.left;
-    const y2 = toRect.top + toRect.height / 2 - svgRect.top;
-    const [adjustedX1, adjustedY1, adjustedX2, adjustedY2] =
-      getAdjustedCoordinates(x1, y1, x2, y2, zoomLevel);
-    return [adjustedX1, adjustedY1, adjustedX2, adjustedY2];
-  };
-
   const updateLines = (lines: [string, string][], zoomLevel: number) => {
     lines.forEach(([from, to], lineIndex) => {
       if (!browserFrameRef.current) return;
@@ -960,10 +979,27 @@ const App: React.FC = () => {
               .map(([x, y]) => `${x},${y}`)
               .join(' ');
 
+            let groupFrom;
+            let groupTo;
+            let lineGroup;
+            Object.keys(iconParameters).forEach((el) => {
+              if (el === line[0]) {
+                groupFrom = iconParameters[el].group;
+              }
+              if (el === line[1]) {
+                groupTo = iconParameters[el].group;
+              }
+            });
+
+            if (groupFrom && groupFrom === groupTo) {
+              lineGroup = groupFrom;
+            }
+
             return (
               <polyline
                 key={index}
                 points={points}
+                data-group={lineGroup}
                 stroke='black'
                 strokeWidth='2'
                 strokeLinecap='round'
@@ -990,6 +1026,10 @@ const App: React.FC = () => {
                     e.stopPropagation();
                     mouseOffsetRef.current = [e.clientX - x, e.clientY - y];
                     setDraggedVertex([parseInt(lineIndex), vertexIndex]);
+                  }}
+                  onContextMenu={(e) => {
+                    e.preventDefault();
+                    handleDeleteVertex(parseInt(lineIndex), vertexIndex);
                   }}
                 />
               );
