@@ -284,14 +284,17 @@ const App: React.FC = () => {
       if (!mouseOffsetRef.current) return;
 
       const [dx, dy] = mouseOffsetRef.current;
-      const x = e.clientX - dx / zoomLevel;
-      const y = e.clientY - dy / zoomLevel;
+      const x = e.clientX - dx;
+      const y = e.clientY - dy;
+
+      const adjustedX = x / zoomLevel;
+      const adjustedY = y / zoomLevel;
 
       if (draggedVertex) {
         const [lineIndex, vertexIndex] = draggedVertex;
         setVertices((prevVertices) => {
           const newVertices = { ...prevVertices };
-          newVertices[lineIndex][vertexIndex] = [x, y];
+          newVertices[lineIndex][vertexIndex] = [adjustedX, adjustedY];
           return newVertices;
         });
       }
@@ -312,19 +315,14 @@ const App: React.FC = () => {
       setDraggedVertex(null);
     };
 
-    if (browserFrameRef.current) {
-      browserFrameRef.current.addEventListener('mousemove', handleMouseMove);
-      browserFrameRef.current.addEventListener('mouseup', handleMouseUp);
-    }
+    // Attach event listeners to the document
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
 
+    // Detach event listeners when the component is unmounted
     return () => {
-      if (browserFrameRef.current) {
-        browserFrameRef.current.removeEventListener(
-          'mousemove',
-          handleMouseMove
-        );
-        browserFrameRef.current.removeEventListener('mouseup', handleMouseUp);
-      }
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
     };
   }, [draggedVertex, updateLinesAndVertices, zoomLevel]);
 
@@ -600,6 +598,7 @@ const App: React.FC = () => {
   const handleLineContextMenu = (e: React.MouseEvent, lineIndex: number) => {
     e.preventDefault();
     handleRemoveLine(lineIndex);
+    e.stopPropagation();
   };
 
   const handleScaleLineClick = (e: React.MouseEvent<SVGElement>) => {
@@ -794,6 +793,38 @@ const App: React.FC = () => {
     updateLines(lines, zoomLevel);
   }, [lines, zoomLevel]);
 
+  useEffect(() => {
+    if (zoomLevel === 1) return; // No need to update lines and vertices when the zoom level is 1
+
+    lines.forEach((line, index) => {
+      const lineVertices = vertices[index] || [];
+
+      // Update the line based on the zoom level
+      const icon1 = document.getElementById(line[0]);
+      const icon2 = document.getElementById(line[1]);
+
+      if (icon1 && icon2) {
+        const icon1Rect = icon1.getBoundingClientRect();
+        const icon2Rect = icon2.getBoundingClientRect();
+
+        const polyline = document.getElementById(`line-${index}`);
+        if (!polyline) return;
+
+        const points = [
+          `${icon1Rect.left + (icon1Rect.width / 2) * zoomLevel},${
+            icon1Rect.top + (icon1Rect.height / 2) * zoomLevel
+          }`,
+          ...lineVertices.map(([x, y]) => `${x * zoomLevel},${y * zoomLevel}`),
+          `${icon2Rect.left + (icon2Rect.width / 2) * zoomLevel},${
+            icon2Rect.top + (icon2Rect.height / 2) * zoomLevel
+          }`,
+        ].join(' ');
+
+        polyline.setAttribute('points', points);
+      }
+    });
+  }, [zoomLevel, vertices, lines]);
+
   return (
     <div className='App'>
       <div className='sidebar'>
@@ -866,6 +897,7 @@ const App: React.FC = () => {
           transform: `scale(${zoomLevel})`,
           transformOrigin: 'top left',
         }}
+        onContextMenu={(e) => e.preventDefault()}
       >
         {scaleLinePoints.length !== 3 && (
           <svg
@@ -908,81 +940,60 @@ const App: React.FC = () => {
             position: 'absolute',
           }}
         >
-          {lines.map(([from, to], lineIndex) => {
-            const fromElement = document.getElementById(from);
-            const toElement = document.getElementById(to);
-            const lineCoordinates = calculateLineCoordinates(
-              from,
-              to,
-              zoomLevel
-            );
-            if (!lineCoordinates) return null;
+          {lines.map((line, index) => {
+            const startIcon = document.getElementById(line[0]);
+            const endIcon = document.getElementById(line[1]);
+            if (!startIcon || !endIcon) return null;
 
-            const [x1, y1, x2, y2] = lineCoordinates;
-            let groupFrom;
-            let groupTo;
-            let lineGroup;
-            Object.keys(iconParameters).forEach((el) => {
-              if (el === from) {
-                groupFrom = iconParameters[el].group;
-              }
-              if (el === to) {
-                groupTo = iconParameters[el].group;
-              }
-            });
-
-            if (groupFrom && groupFrom === groupTo) {
-              lineGroup = groupFrom;
-            }
-
-            if (!fromElement || !toElement) return null;
-
-            const lineVertices = vertices[lineIndex] || [];
+            const lineVertices = vertices[index] || [];
+            const points = [
+              [
+                startIcon.offsetLeft + startIcon.offsetWidth / 2,
+                startIcon.offsetTop + startIcon.offsetHeight / 2,
+              ],
+              ...lineVertices,
+              [
+                endIcon.offsetLeft + endIcon.offsetWidth / 2,
+                endIcon.offsetTop + endIcon.offsetHeight / 2,
+              ],
+            ]
+              .map(([x, y]) => `${x},${y}`)
+              .join(' ');
 
             return (
-              <g key={`line-${lineIndex}`} className='line'>
-                <polyline
-                  onDoubleClick={(e) => handleDoubleClick(e, lineIndex)}
-                  points={`${x1},${y1} ${lineVertices
-                    .map((vertex) => vertex.join(','))
-                    .join(' ')} ${x2},${y2}`}
-                  fill='none'
-                  data-line-index={lineIndex}
+              <polyline
+                key={index}
+                points={points}
+                stroke='black'
+                strokeWidth='2'
+                strokeLinecap='round'
+                fill='none'
+                style={{ cursor: 'pointer' }}
+                onDoubleClick={(e) => handleDoubleClick(e, index)}
+                onContextMenu={(e) => handleLineContextMenu(e, index)}
+              />
+            );
+          })}
+          {Object.entries(vertices).map(([lineIndex, lineVertices]) => {
+            return lineVertices.map(([x, y], vertexIndex) => {
+              return (
+                <circle
+                  key={`${lineIndex}-${vertexIndex}`}
+                  cx={x}
+                  cy={y}
+                  r={4} // Adjust the vertex size (radius) as needed
+                  fill='white'
                   stroke='black'
                   strokeWidth='2'
-                  data-group={lineGroup}
-                  pointerEvents='visibleStroke'
-                  onContextMenu={(e) => handleLineContextMenu(e, lineIndex)}
+                  style={{ cursor: 'pointer' }}
+                  onMouseDown={(e) => {
+                    e.stopPropagation();
+                    mouseOffsetRef.current = [e.clientX - x, e.clientY - y];
+                    setDraggedVertex([parseInt(lineIndex), vertexIndex]);
+                  }}
                 />
-                {lineVertices.map(([x, y], vertexIndex) => (
-                  <circle
-                    key={`vertex-${lineIndex}-${vertexIndex}`}
-                    cx={x}
-                    cy={y}
-                    r='4'
-                    fill='red'
-                    stroke='black'
-                    strokeWidth='1'
-                    onMouseDown={(e) => {
-                      e.stopPropagation();
-                      e.nativeEvent.stopImmediatePropagation();
-                      draggedIconRef.current = null;
-                      mouseOffsetRef.current = [e.clientX - x, e.clientY - y];
-                      setDraggedVertex([lineIndex, vertexIndex]);
-                    }}
-                    onMouseUp={(e) => {
-                      e.stopPropagation();
-                      e.nativeEvent.stopImmediatePropagation();
-                      setDraggedVertex(null);
-                    }}
-                    onContextMenu={(e) => {
-                      e.preventDefault();
-                      handleDeleteVertex(lineIndex, vertexIndex);
-                    }}
-                  />
-                ))}
-              </g>
-            );
+              );
+            });
           })}
         </svg>
         {Object.keys(iconParameters).map((iconId) => {
