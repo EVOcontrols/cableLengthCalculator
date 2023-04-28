@@ -1,0 +1,7 @@
+.icon {
+  cursor: grab;
+}
+
+.icon.in-browser-frame {
+  cursor: move;
+}

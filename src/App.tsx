@@ -3,57 +3,12 @@ import { getDocument, GlobalWorkerOptions, version } from 'pdfjs-dist';
 import * as htmlToImage from 'html-to-image';
 import 'svg2pdf.js';
 import './App.css';
-import { BulbIcon } from './Icons/BulbIcon';
-import { SensorIcon } from './Icons/SensorIcon';
-import { SwitchIcon } from './Icons/SwitchIcon';
-import { MainPanelIcon } from './Icons/MainPanel';
 import ParametrModal from './ParametrModal/ParametrModal';
 import ScaleModal from './ScaleModal/ScaleModal';
+import { SvgIcon } from './SvgIcon/SvgIcon';
 GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${version}/pdf.worker.min.js`;
 
-interface SvgIconProps {
-  iconType: 'bulb' | 'sensor' | 'switch' | 'mainPanel';
-  onDragStart: (e: React.DragEvent<HTMLDivElement>) => void;
-  elementType: string;
-  id: string;
-  zoomLevel?: number;
-}
-
-const SvgIcon: React.FC<SvgIconProps> = ({
-  onDragStart,
-  elementType,
-  zoomLevel,
-  id,
-}) => {
-  return (
-    <div
-      className='icon'
-      draggable='true'
-      onDragStart={(e) => {
-        const rect = e.currentTarget.getBoundingClientRect();
-        const offsetX = e.clientX - rect.left;
-        const offsetY = e.clientY - rect.top;
-
-        e.dataTransfer.setData('elementType', elementType);
-        e.dataTransfer.setData('iconId', id);
-        e.dataTransfer.setData('offsetX', offsetX.toString());
-        e.dataTransfer.setData('offsetY', offsetY.toString());
-
-        onDragStart(e);
-      }}
-    >
-      {elementType === 'bulb' && <BulbIcon zoomLevel={zoomLevel} />}
-      {elementType === 'sensor' && <SensorIcon />}
-      {elementType === 'switch' && <SwitchIcon />}
-      {elementType === 'mainPanel' && <MainPanelIcon />}
-    </div>
-  );
-};
-
 const App: React.FC = () => {
-  const browserFrameRef = useRef<HTMLDivElement>(null);
-  const draggedIconRef = useRef<HTMLDivElement | null>(null);
-  const mouseOffsetRef = useRef<[number, number] | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedIcons, setSelectedIcons] = useState<string[]>([]);
   const [vertices, setVertices] = useState<{
@@ -65,7 +20,6 @@ const App: React.FC = () => {
   );
   const [draggedVertex, setDraggedVertex] = useState<number[] | null>(null);
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
   const [currentElementType, setCurrentElementType] = useState<{
     type: string;
     id: string;
@@ -83,6 +37,10 @@ const App: React.FC = () => {
   );
   const [creatingScaleLine, setCreatingScaleLine] = useState(false);
   const [zoomLevel, setZoomLevel] = useState<number>(1);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const browserFrameRef = useRef<HTMLDivElement>(null);
+  const draggedIconRef = useRef<HTMLDivElement | null>(null);
+  const mouseOffsetRef = useRef<[number, number] | null>(null);
 
   const handleDragStart = useCallback((e: React.DragEvent<HTMLDivElement>) => {
     e.dataTransfer.setData('text/plain', e.currentTarget.outerHTML);
@@ -106,22 +64,10 @@ const App: React.FC = () => {
         const newSelected = [...prevSelected, iconId];
 
         if (newSelected.length === 2) {
-          // Check if the line already exists
-          // const lineExists = linesRef.current.some(
-          //   (line) =>
-          //     (line[0] === newSelected[0] && line[1] === newSelected[1]) ||
-          //     (line[0] === newSelected[1] && line[1] === newSelected[0])
-          // );
-
-          // If the line doesn't exist, add it
-          // if (!lineExists) {
-
           setLines((prevLines) => [
             ...prevLines,
             [newSelected[0], newSelected[1]],
           ]);
-          // }
-
           return [];
         }
 
@@ -136,12 +82,8 @@ const App: React.FC = () => {
         };
       });
     },
-    [selectedIcons]
+    [selectedIcons, lines]
   );
-
-  useEffect(() => {
-    console.log('useeffect: ', lines);
-  }, [lines]);
 
   const handleDeleteIcon = useCallback((iconId: string) => {
     // Remove the icon from the DOM
@@ -343,8 +285,8 @@ const App: React.FC = () => {
       }
 
       if (draggedIconRef.current) {
-        draggedIconRef.current.style.left = `${x}px`;
-        draggedIconRef.current.style.top = `${y}px`;
+        draggedIconRef.current.style.left = `${adjustedX}px`;
+        draggedIconRef.current.style.top = `${adjustedY}px`;
 
         const iconId = draggedIconRef.current.id;
 
@@ -367,7 +309,14 @@ const App: React.FC = () => {
       document.removeEventListener('mousemove', handleMouseMove);
       document.removeEventListener('mouseup', handleMouseUp);
     };
-  }, [draggedVertex, updateLinesAndVertices, zoomLevel, lines, vertices]);
+  }, [
+    draggedVertex,
+    updateLinesAndVertices,
+    zoomLevel,
+    lines,
+    vertices,
+    isScaleMode,
+  ]);
 
   const onModalClose = (parameters: any) => {
     const data = {
@@ -773,7 +722,7 @@ const App: React.FC = () => {
         );
       }
     };
-  }, [creatingScaleLine]);
+  }, [creatingScaleLine, zoomLevel]);
 
   const updateLines = (lines: [string, string][], zoomLevel: number) => {
     lines.forEach(([from, to], lineIndex) => {

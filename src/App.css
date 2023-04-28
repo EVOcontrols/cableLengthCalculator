@@ -154,14 +154,6 @@ iframe {
   position: relative;
 }
 
-.icon {
-  cursor: grab;
-}
-
-.icon.in-browser-frame {
-  cursor: move;
-}
-
 .parameter-overlay {
   background-color: rgba(255, 255, 255, 0.8);
   border: 1px solid #ccc;
