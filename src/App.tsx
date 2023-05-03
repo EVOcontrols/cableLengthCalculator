@@ -37,6 +37,8 @@ const App: React.FC = () => {
   );
   const [creatingScaleLine, setCreatingScaleLine] = useState(false);
   const [zoomLevel, setZoomLevel] = useState<number>(1);
+
+  const selectedIconsRef = useRef<string[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const browserFrameRef = useRef<HTMLDivElement>(null);
   const draggedIconRef = useRef<HTMLDivElement | null>(null);
@@ -60,19 +62,17 @@ const App: React.FC = () => {
       const iconElement = document.getElementById(iconId);
       if (!iconElement) return;
 
-      setSelectedIcons((prevSelected) => {
-        const newSelected = [...prevSelected, iconId];
+      const newSelected = [...selectedIconsRef.current, iconId];
 
-        if (newSelected.length === 2) {
-          setLines((prevLines) => [
-            ...prevLines,
-            [newSelected[0], newSelected[1]],
-          ]);
-          return [];
-        }
-
-        return newSelected;
-      });
+      if (newSelected.length === 2) {
+        setLines((prevLines) => [
+          ...prevLines,
+          [newSelected[0], newSelected[1]],
+        ]);
+        selectedIconsRef.current = []; // Reset the selected icons
+      } else {
+        selectedIconsRef.current = newSelected;
+      }
 
       setCurrentElementType((prevState) => {
         return {
@@ -82,7 +82,7 @@ const App: React.FC = () => {
         };
       });
     },
-    [selectedIcons, lines]
+    []
   );
 
   const handleDeleteIcon = useCallback((iconId: string) => {
@@ -186,6 +186,7 @@ const App: React.FC = () => {
         startLeft = wrapper.offsetLeft;
         startTop = wrapper.offsetTop;
         handleIconClick(iconId, elementType);
+        document.body.classList.add('hide-cursor');
       });
 
       wrapper.addEventListener('contextmenu', (e) => {
@@ -227,6 +228,8 @@ const App: React.FC = () => {
 
           e.stopPropagation();
           isDragging = false;
+
+          document.body.classList.remove('hide-cursor');
         });
       }
 
@@ -246,14 +249,11 @@ const App: React.FC = () => {
       const x = e.clientX - dx;
       const y = e.clientY - dy;
 
-      const adjustedX = x / zoomLevel;
-      const adjustedY = y / zoomLevel;
-
       if (draggedVertex) {
         const [lineIndex, vertexIndex] = draggedVertex;
         setVertices((prevVertices) => {
           const newVertices = { ...prevVertices };
-          newVertices[lineIndex][vertexIndex] = [adjustedX, adjustedY];
+          newVertices[lineIndex][vertexIndex] = [x, y];
           return newVertices;
         });
 
@@ -283,10 +283,11 @@ const App: React.FC = () => {
           }
         }
       }
+      document.body.classList.add('hide-cursor');
 
       if (draggedIconRef.current) {
-        draggedIconRef.current.style.left = `${adjustedX}px`;
-        draggedIconRef.current.style.top = `${adjustedY}px`;
+        draggedIconRef.current.style.left = `${x}px`;
+        draggedIconRef.current.style.top = `${y}px`;
 
         const iconId = draggedIconRef.current.id;
 
@@ -298,6 +299,7 @@ const App: React.FC = () => {
       draggedIconRef.current = null;
       mouseOffsetRef.current = null;
       setDraggedVertex(null);
+      document.body.classList.remove('hide-cursor');
     };
 
     // Attach event listeners to the document
@@ -309,14 +311,7 @@ const App: React.FC = () => {
       document.removeEventListener('mousemove', handleMouseMove);
       document.removeEventListener('mouseup', handleMouseUp);
     };
-  }, [
-    draggedVertex,
-    updateLinesAndVertices,
-    zoomLevel,
-    lines,
-    vertices,
-    isScaleMode,
-  ]);
+  }, [draggedVertex, updateLinesAndVertices, zoomLevel, lines, vertices]);
 
   const onModalClose = (parameters: any) => {
     const data = {

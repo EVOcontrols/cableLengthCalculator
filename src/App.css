@@ -165,42 +165,42 @@ iframe {
 .uploadButton {
   position: absolute;
   width: 70px;
-  bottom: 10px;
+  bottom: 20px;
 }
 
 .downloadButton {
   position: absolute;
   width: 70px;
-  bottom: 210px;
+  bottom: 220px;
 }
 
 .show-parameters-button {
   position: absolute;
   width: 70px;
-  bottom: 60px;
+  bottom: 70px;
 }
 
 .calculate-button {
   position: absolute;
   width: 70px;
-  bottom: 110px;
+  bottom: 120px;
 }
 
 .scale-button {
   position: absolute;
   width: 70px;
-  bottom: 160px;
+  bottom: 170px;
 }
 
 .zoomInButton {
   position: absolute;
   width: 70px;
-  bottom: 260px;
+  bottom: 270px;
 }
 .zoomOutButton {
   position: absolute;
   width: 70px;
-  bottom: 290px;
+  bottom: 300px;
 }
 
 .parameters {
@@ -219,4 +219,8 @@ iframe {
 
 .hidden {
   display: none;
+}
+
+.hide-cursor {
+  cursor: none !important;
 }
